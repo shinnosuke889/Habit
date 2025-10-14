@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>習慣追蹤器 - 強度點數優化版</title>
+    
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 700px; margin: 40px auto; padding: 20px; text-align: center; background-color: #f4f4f9; }
+        h1 { color: #2c3e50; border-bottom: 2px solid #bdc3c7; padding-bottom: 10px; }
+        .header-controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 10px; background-color: #ecf0f1; border-radius: 8px; }
+        .half-life-selector label { font-weight: bold; color: #34495e; margin-right: 10px; }
+        .half-life-selector select { padding: 8px; border-radius: 4px; border: 1px solid #ccc; }
+        .stats-box { border: 2px solid #3498db; padding: 15px; margin-bottom: 20px; border-radius: 10px; background-color: #ecf0f1; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .sync-display { display: flex; justify-content: space-around; align-items: center; margin: 15px 0; padding: 10px; border-bottom: 1px dashed #ccc; }
+        .display-item { flex: 1; padding: 0 10px; }
+        .display-item h2 { margin: 0 0 5px 0; font-size: 1.2em; color: #34495e; }
+        #timerDisplay, #scoreDisplay { font-size: 2.2em; font-weight: bold; font-family: 'Courier New', monospace; display: block; }
+        #timerDisplay { color: #e74c3c; } 
+        #scoreDisplay { color: #f39c12; } 
+        .controls button { padding: 12px 25px; margin: 10px; font-size: 1.1em; cursor: pointer; border-radius: 6px; transition: background-color 0.3s; font-weight: bold; }
+        #addButton { background-color: #2ecc71; color: white; border: none; }
+        #deleteButton { background-color: #e74c3c; color: white; border: none; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; margin-bottom: 30px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 0.9em;}
+        th { background-color: #34495e; color: white; }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+
+    <h1>習慣追蹤：[強度點數優化版]</h1>
+
+    <div class="header-controls">
+        <div class="half-life-selector">
+            <label for="halfLifeSelector">半衰期 ($\text{Half-Life}$):</label>
+            <select id="halfLifeSelector">
+                <option value="1">1 小時</option>
+                <option value="2" selected>2 小時</option> 
+            </select>
+        </div>
+        <div></div> 
+    </div>
+
+    <div class="stats-box">
+        <p>今日 (以凌晨 4 點為分界): <strong id="currentDateDisplay"></strong></p>
+        <p>今日累計執行次數: <strong id="dailyCountDisplay">0</strong> 次</p>
+    </div>
+
+    <div class="sync-display">
+        <div class="display-item">
+            <h2>自上次執行已過時間</h2>
+            <span id="timerDisplay">00:00:00</span>
+        </div>
+        <div class="display-item">
+            <h2>當前累積點數</h2>
+            <span id="scoreDisplay">0.00</span>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="addButton">✅ 新增紀錄</button> 
+        <button id="deleteButton">❌ 刪除最近一筆</button> 
+    </div>
+
+    <h2>每日強度統計</h2>
+    <table id="dailyStatsTable">
+        <thead>
+            <tr>
+                <th>日期</th>
+                <th>累積次數</th>
+                <th>當日最高點數</th>
+            </tr>
+        </thead>
+        <tbody id="dailyStatsTableBody">
+        </tbody>
+    </table>
+    
+    <h2>逐次歷史紀錄明細</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>日期</th>
+                <th>時間 ($\text{24h}$ 制)</th>
+                <th>間隔時間 ($\text{hh:mm:ss}$)</th>
+                <th>執行前累積點數</th>
+            </tr>
+        </thead>
+        <tbody id="historyTableBody">
+        </tbody>
+    </table>
+
+    <script>
+        // --- 常數設定 ---
+        const STORAGE_KEY = 'habit_timestamps_score'; 
+        const STORAGE_HALF_LIFE_KEY = 'half_life_setting_score';
+        const SHIFT_HOUR = 4;
+        const INITIAL_SCORE = 100.0;
+
+        // --- 取得 DOM 元素 ---
+        const halfLifeSelector = document.getElementById('halfLifeSelector');
+        const currentDateDisplay = document.getElementById('currentDateDisplay');
+        const dailyCountDisplay = document.getElementById('dailyCountDisplay');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const addButton = document.getElementById('addButton');
+        const deleteButton = document.getElementById('deleteButton');
+        const historyTableBody = document.getElementById('historyTableBody');
+        const dailyStatsTableBody = document.getElementById('dailyStatsTableBody'); // 新增
+
+
+        // --- 數據存取與載入 ---
+
+        function loadTimestamps() {
+            const json = localStorage.getItem(STORAGE_KEY);
+            // 紀錄格式現在是：
+            // [{time: "ISO時間", score_before_add: "50.00", time_since_last: "01:30:00"}, ...]
+            return json ? JSON.parse(json) : []; 
+        }
+
+        function saveTimestamps(timestamps) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(timestamps));
+        }
+
+        function loadHalfLifeHours() {
+            const storedValue = localStorage.getItem(STORAGE_HALF_LIFE_KEY);
+            return storedValue ? parseFloat(storedValue) : parseFloat(halfLifeSelector.value);
+        }
+
+        function saveHalfLifeHours(hours) {
+            localStorage.setItem(STORAGE_HALF_LIFE_KEY, hours.toString());
+        }
+
+
+        // --- 核心邏輯：半衰期點數計算 ---
+        
+        function calculateDecayedScore(timestampStr, initialScore, halfLifeHours, currentTime = new Date()) {
+            const recordTime = new Date(timestampStr);
+            const halfLifeMs = halfLifeHours * 60 * 60 * 1000;
+            const timeElapsedMs = currentTime.getTime() - recordTime.getTime();
+            
+            // 經過時間若為負 (理論上不該發生)，則視為 0 衰減
+            if (timeElapsedMs < 0) return initialScore; 
+            
+            const decayFactor = Math.pow(0.5, timeElapsedMs / halfLifeMs);
+            return initialScore * decayFactor;
+        }
+
+        /**
+         * 計算當前的總累積點數 (只計算 decay，不包含當次新增的 100 點)。
+         */
+        function calculateTotalCurrentDecayedScore(timestamps, halfLifeHours, currentTime = new Date()) {
+            if (timestamps.length === 0) return 0.0;
+            
+            let totalScore = 0;
+            for (const record of timestamps) {
+                totalScore += calculateDecayedScore(record.time, INITIAL_SCORE, halfLifeHours, currentTime);
+            }
+            return totalScore;
+        }
+        
+        /**
+         * 重新計算所有歷史紀錄的「執行前累積點數」和「間隔時間」。
+         * 當使用者更改半衰期設定時調用此函數。
+         */
+        function recalculateAllData(timestamps, newHalfLifeHours) {
+             const recalculatedTimestamps = [];
+             
+             for (let i = 0; i < timestamps.length; i++) {
+                 const currentRecord = timestamps[i];
+                 let scoreBeforeAdd = 0;
+                 let timeSinceLast = '00:00:00';
+                 
+                 // 計算執行前的累積點數 (不含該次)
+                 for (let j = 0; j < i; j++) {
+                     const previousRecord = timestamps[j];
+                     scoreBeforeAdd += calculateDecayedScore(
+                         previousRecord.time, 
+                         INITIAL_SCORE, 
+                         newHalfLifeHours, 
+                         new Date(currentRecord.time) // 使用當前紀錄的時間作為計算基準點
+                     );
+                 }
+
+                 // 計算間隔時間
+                 if (i > 0) {
+                     const previousTime = new Date(timestamps[i-1].time);
+                     const currentTime = new Date(currentRecord.time);
+                     const diffSeconds = Math.floor((currentTime.getTime() - previousTime.getTime()) / 1000);
+                     timeSinceLast = formatSecondsToHHMMSS(diffSeconds);
+                 }
+
+                 // 重新組裝紀錄物件
+                 recalculatedTimestamps.push({
+                     time: currentRecord.time,
+                     score_before_add: scoreBeforeAdd.toFixed(2), 
+                     time_since_last: timeSinceLast
+                 });
+             }
+             return recalculatedTimestamps;
+        }
+
+        // --- 其他輔助功能 ---
+        
+        /** 格式化秒數為 HH:MM:SS */
+        function formatSecondsToHHMMSS(totalSeconds) {
+            if (totalSeconds < 0) totalSeconds = 0;
+            const seconds = totalSeconds % 60;
+            const minutes = Math.floor(totalSeconds / 60) % 60;
+            const hours = Math.floor(totalSeconds / 3600);
+            const pad = (num) => String(num).padStart(2, '0');
+            return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+        }
+
+        /** 根據「凌晨 4 點換日」規則，判斷一個時間戳記屬於哪個「習慣日」。*/
+        function getHabitDay(timestamp) {
+            const adjustedTime = new Date(timestamp);
+            if (adjustedTime.getHours() < SHIFT_HOUR) {
+                adjustedTime.setDate(adjustedTime.getDate() - 1);
+            }
+            adjustedTime.setHours(0, 0, 0, 0); 
+            return adjustedTime;
+        }
+
+        // --- 顯示更新功能 (主渲染函數) ---
+
+        function updateDisplay() {
+            const timestamps = loadTimestamps();
+            const halfLifeHours = loadHalfLifeHours();
+            const now = new Date();
+            
+            halfLifeSelector.value = halfLifeHours.toString(); 
+
+            // === 1. 更新彙總數據 (今日次數) ===
+            
+            const currentHabitDay = getHabitDay(now);
+            currentDateDisplay.textContent = currentHabitDay.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' });
+            
+            let dailyCount = 0;
+            timestamps.forEach(record => {
+                const entryTime = new Date(record.time);
+                if (getHabitDay(entryTime).getTime() === currentHabitDay.getTime()) {
+                    dailyCount++;
+                }
+            });
+            dailyCountDisplay.textContent = dailyCount;
+
+
+            // === 2. 更新計時器與當前累積點數 ===
+            
+            let timeAgoText = '00:00:00';
+            let diffSeconds = 0;
+            if (timestamps.length > 0) {
+                const lastTimestamp = new Date(timestamps[timestamps.length - 1].time);
+                diffSeconds = Math.floor((now.getTime() - lastTimestamp.getTime()) / 1000); 
+                timeAgoText = formatSecondsToHHMMSS(diffSeconds);
+            }
+            timerDisplay.textContent = timeAgoText;
+
+            // 計算當前累積點數 (包含所有 decay + 尚未衰減的 100 點)
+            const currentTotalDecayedScore = calculateTotalCurrentDecayedScore(timestamps, halfLifeHours, now);
+            scoreDisplay.textContent = currentTotalDecayedScore.toFixed(2);
+
+
+            // === 3. 更新每日統計表格 (新需求 3) ===
+            calculateAndRenderDailyStats(timestamps, halfLifeHours);
+
+            // === 4. 更新歷史紀錄表格 (需求 1 & 2) ===
+            renderHistoryTable(timestamps);
+        }
+
+        /** 渲染逐次歷史紀錄表格 (新需求 1 & 2) */
+        function renderHistoryTable(timestamps) {
+            historyTableBody.innerHTML = '';
+            
+            const timeOptions = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }; // 24小時制
+            
+            // 倒序顯示，最新紀錄在最上方
+            [...timestamps].reverse().forEach(record => {
+                const ts = new Date(record.time);
+                const row = historyTableBody.insertRow();
+                
+                row.insertCell(0).textContent = ts.toLocaleDateString('zh-TW');
+                // 24小時制時間 (新需求 1)
+                row.insertCell(1).textContent = ts.toLocaleTimeString('zh-TW', timeOptions);
+                // 間隔時間 (新需求 1)
+                row.insertCell(2).textContent = record.time_since_last || '00:00:00'; 
+                // 執行前累積點數 (新需求 2)
+                row.insertCell(3).textContent = record.score_before_add || '0.00'; 
+            });
+        }
+        
+        /** 計算並渲染每日統計表格 (新需求 3) */
+        function calculateAndRenderDailyStats(timestamps, halfLifeHours) {
+            const dailyStats = {}; // Key: HabitDay (YYYY/MM/DD), Value: {count: N, max_score: S}
+
+            for (let i = 0; i < timestamps.length; i++) {
+                const currentRecord = timestamps[i];
+                const ts = new Date(currentRecord.time);
+                
+                // 1. 判斷 HabitDay
+                const habitDay = getHabitDay(ts).toLocaleDateString('zh-TW'); 
+                
+                if (!dailyStats[habitDay]) {
+                    dailyStats[habitDay] = { count: 0, max_score: 0.0 };
+                }
+                
+                // 2. 累積次數
+                dailyStats[habitDay].count++;
+                
+                // 3. 計算當日最高點數 (執行該次後產生的最高峰值)
+                
+                // 執行前的累積點數
+                const scoreBeforeAdd = parseFloat(currentRecord.score_before_add) || 0; 
+                
+                // 該次執行後的最高峰值
+                const currentPeakScore = scoreBeforeAdd + INITIAL_SCORE; 
+                
+                // 更新當日最高點數
+                if (currentPeakScore > dailyStats[habitDay].max_score) {
+                    dailyStats[habitDay].max_score = currentPeakScore;
+                }
+            }
+
+            // 渲染表格
+            dailyStatsTableBody.innerHTML = '';
+            
+            // 將結果轉換為陣列並按日期降序排列
+            const sortedDays = Object.keys(dailyStats).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+
+            sortedDays.forEach(day => {
+                const stats = dailyStats[day];
+                const row = dailyStatsTableBody.insertRow();
+                
+                row.insertCell(0).textContent = day;
+                row.insertCell(1).textContent = stats.count;
+                row.insertCell(2).textContent = stats.max_score.toFixed(2);
+            });
+        }
+
+
+        // --- 事件處理器 ---
+
+        // 1. 新增按鈕
+        addButton.addEventListener('click', () => {
+            const timestamps = loadTimestamps();
+            const halfLifeHours = loadHalfLifeHours();
+            const now = new Date();
+            
+            // 1. 計算執行前的累積點數 (新需求 2)
+            const scoreBeforeAdd = calculateTotalCurrentDecayedScore(timestamps, halfLifeHours, now);
+            
+            // 2. 計算間隔時間 (新需求 1)
+            let timeSinceLast = '00:00:00';
+            if (timestamps.length > 0) {
+                const lastTimestamp = new Date(timestamps[timestamps.length - 1].time);
+                const diffSeconds = Math.floor((now.getTime() - lastTimestamp.getTime()) / 1000); 
+                timeSinceLast = formatSecondsToHHMMSS(diffSeconds);
+            }
+
+            // 3. 新增紀錄
+            timestamps.push({
+                time: now.toISOString(),
+                score_before_add: scoreBeforeAdd.toFixed(2), // 記錄執行前的點數
+                time_since_last: timeSinceLast
+            }); 
+            
+            saveTimestamps(timestamps);
+            updateDisplay();
+        });
+
+        // 2. 刪除按鈕
+        deleteButton.addEventListener('click', () => {
+            let timestamps = loadTimestamps();
+            if (timestamps.length > 0) {
+                timestamps.pop(); 
+                // 刪除後，需要重新計算間隔時間和執行前累積點數，以確保表格一致性
+                const halfLifeHours = loadHalfLifeHours();
+                const recalculatedTimestamps = recalculateAllData(timestamps, halfLifeHours);
+
+                saveTimestamps(recalculatedTimestamps);
+                updateDisplay(); 
+            } else {
+                alert('沒有可以刪除的紀錄了！');
+            }
+        });
+
+        // 3. 半衰期選單變更
+        halfLifeSelector.addEventListener('change', (event) => {
+            const newHalfLifeHours = parseFloat(event.target.value);
+            
+            saveHalfLifeHours(newHalfLifeHours);
+            
+            const oldTimestamps = loadTimestamps();
+            // 變更半衰期後，必須重新計算所有歷史數據
+            const recalculatedTimestamps = recalculateAllData(oldTimestamps, newHalfLifeHours);
+            
+            saveTimestamps(recalculatedTimestamps);
+            
+            updateDisplay(); 
+        });
+
+        // --- 初始化與持續更新 ---
+
+        function initialize() {
+            const storedHalfLife = loadHalfLifeHours();
+            halfLifeSelector.value = storedHalfLife.toString();
+            
+            setInterval(updateDisplay, 1000); 
+            updateDisplay(); 
+        }
+
+        initialize();
+    </script>
+</body>
+</html>

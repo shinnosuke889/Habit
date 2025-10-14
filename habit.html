@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的習慣追蹤器</title>
+    
+    <style>
+        /* 簡單的 CSS 樣式讓頁面更清晰 */
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 600px; 
+            margin: 40px auto; 
+            padding: 20px; 
+            text-align: center; 
+            background-color: #f4f4f9;
+        }
+        h1 { 
+            color: #2c3e50; 
+            border-bottom: 2px solid #bdc3c7; 
+            padding-bottom: 10px;
+        }
+        .stats-box { 
+            border: 2px solid #3498db; 
+            padding: 15px; 
+            margin-bottom: 20px; 
+            border-radius: 10px; 
+            background-color: #ecf0f1; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        #timerDisplay { 
+            font-size: 3em; 
+            color: #e74c3c; /* 計時器顏色 */
+            font-weight: bold; 
+            margin: 15px 0; 
+            font-family: 'Courier New', monospace; /* 讓數字更清晰 */
+        }
+        .controls button { 
+            padding: 12px 25px; 
+            margin: 10px; 
+            font-size: 1.1em; 
+            cursor: pointer; 
+            border-radius: 6px; 
+            transition: background-color 0.3s;
+            font-weight: bold;
+        }
+        #addButton { 
+            background-color: #2ecc71; 
+            color: white; 
+            border: none; 
+        }
+        #addButton:hover { background-color: #27ae60; }
+        #deleteButton { 
+            background-color: #e74c3c; 
+            color: white; 
+            border: none; 
+        }
+        #deleteButton:hover { background-color: #c0392b; }
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 20px; 
+        }
+        th, td { 
+            border: 1px solid #ddd; 
+            padding: 10px; 
+            text-align: left; 
+        }
+        th { 
+            background-color: #34495e; 
+            color: white; 
+        }
+        tr:nth-child(even) { background-color: #f2f2f2; }
+    </style>
+</head>
+<body>
+
+    <h1>習慣追蹤：[請在此處填寫您的習慣名稱]</h1>
+
+    <div class="stats-box">
+        <p>今日 (以凌晨 4 點為分界): <strong id="currentDateDisplay"></strong></p>
+        <p>今日累計執行次數: <strong id="dailyCountDisplay">0</strong> 次</p>
+    </div>
+
+    <h2>自上次執行已過時間</h2>
+    <div id="timerDisplay">00:00:00</div>
+
+    <div class="controls">
+        <button id="addButton">✅ 新增紀錄</button> 
+        <button id="deleteButton">❌ 刪除最近一筆</button> 
+    </div>
+
+    <h2>歷史紀錄明細</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>日期</th>
+                <th>時間戳記</th>
+            </tr>
+        </thead>
+        <tbody id="historyTableBody">
+            </tbody>
+    </table>
+
+    <script>
+        // --- 常數設定 ---
+        const STORAGE_KEY = 'habit_timestamps'; 
+        const SHIFT_HOUR = 4; // 凌晨 4 點換日 (0-23)
+
+        // --- 取得 DOM 元素 ---
+        const currentDateDisplay = document.getElementById('currentDateDisplay');
+        const dailyCountDisplay = document.getElementById('dailyCountDisplay');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const addButton = document.getElementById('addButton');
+        const deleteButton = document.getElementById('deleteButton');
+        const historyTableBody = document.getElementById('historyTableBody');
+
+
+        // --- 數據存取功能 ---
+
+        // 1. 載入所有時間戳記
+        function loadTimestamps() {
+            const json = localStorage.getItem(STORAGE_KEY);
+            // 儲存為 ISO 8601 格式的字串陣列
+            return json ? JSON.parse(json) : []; 
+        }
+
+        // 2. 儲存時間戳記
+        function saveTimestamps(timestamps) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(timestamps));
+        }
+
+
+        // --- 核心邏輯：日期和時間計算 ---
+
+        /**
+         * 根據「凌晨 4 點換日」規則，判斷一個時間戳記屬於哪個「習慣日」。
+         * @param {Date} timestamp - 實際執行時間的 Date 物件。
+         * @returns {Date} - 該習慣日的起始日期 (午夜 00:00)。
+         */
+        function getHabitDay(timestamp) {
+            const adjustedTime = new Date(timestamp);
+            
+            // 如果時間在 00:00 到 03:59 之間，則視為前一天
+            if (adjustedTime.getHours() < SHIFT_HOUR) {
+                adjustedTime.setDate(adjustedTime.getDate() - 1);
+            }
+            
+            // 將時間重設為該日的午夜 00:00，作為該習慣日的唯一標識
+            adjustedTime.setHours(0, 0, 0, 0); 
+            return adjustedTime;
+        }
+
+
+        // --- 顯示更新功能 (主渲染函數) ---
+
+        function updateDisplay() {
+            const timestamps = loadTimestamps();
+            const now = new Date();
+            
+            // === 1. 更新彙總數據 (需求 3) ===
+            
+            // 取得當前的「習慣日」
+            const currentHabitDay = getHabitDay(now);
+            currentDateDisplay.textContent = currentHabitDay.toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' });
+            
+            let dailyCount = 0;
+            
+            // 計算今日次數
+            timestamps.forEach(ts => {
+                const entryTime = new Date(ts);
+                const entryHabitDay = getHabitDay(entryTime);
+                
+                // 比較習慣日是否相同
+                if (entryHabitDay.getTime() === currentHabitDay.getTime()) {
+                    dailyCount++;
+                }
+            });
+            
+            dailyCountDisplay.textContent = dailyCount;
+
+
+            // === 2. 更新計時器 (需求 1 & 2) ===
+            
+            let timeAgoText = '00:00:00';
+            if (timestamps.length > 0) {
+                const lastTimestamp = new Date(timestamps[timestamps.length - 1]);
+                
+                // 計算與現在的時間差 (秒)
+                const diffSeconds = Math.floor((now.getTime() - lastTimestamp.getTime()) / 1000); 
+                
+                const seconds = diffSeconds % 60;
+                const minutes = Math.floor(diffSeconds / 60) % 60;
+                const hours = Math.floor(diffSeconds / 3600);
+
+                // 格式化為 HH:MM:SS
+                const pad = (num) => String(num).padStart(2, '0');
+                timeAgoText = `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+            }
+            timerDisplay.textContent = timeAgoText;
+
+
+            // === 3. 更新歷史紀錄 (需求 4) ===
+            
+            renderHistoryTable(timestamps);
+        }
+
+        // 渲染表格
+        function renderHistoryTable(timestamps) {
+            historyTableBody.innerHTML = '';
+            
+            // 倒序顯示，最新紀錄在最上方
+            [...timestamps].reverse().forEach(timestampStr => {
+                const ts = new Date(timestampStr);
+                const row = historyTableBody.insertRow();
+                
+                // 格式化日期：例如 2025/10/14
+                const dateCell = row.insertCell(0);
+                dateCell.textContent = ts.toLocaleDateString('zh-TW');
+                
+                // 格式化時間戳記：例如 15:55:01
+                const timeCell = row.insertCell(1);
+                timeCell.textContent = ts.toLocaleTimeString('zh-TW');
+            });
+        }
+
+
+        // --- 事件處理器 (需求 1) ---
+
+        // 1. 新增按鈕
+        addButton.addEventListener('click', () => {
+            let timestamps = loadTimestamps();
+            // 紀錄當前的 ISO 時間字串
+            timestamps.push(new Date().toISOString()); 
+            saveTimestamps(timestamps);
+            updateDisplay(); // 立即更新頁面
+        });
+
+        // 2. 刪除按鈕
+        deleteButton.addEventListener('click', () => {
+            let timestamps = loadTimestamps();
+            if (timestamps.length > 0) {
+                // 移除最後一筆紀錄
+                timestamps.pop(); 
+                saveTimestamps(timestamps);
+                updateDisplay(); // 立即更新頁面
+            } else {
+                alert('沒有可以刪除的紀錄了！');
+            }
+        });
+
+
+        // --- 初始化與持續更新 ---
+
+        function initialize() {
+            // 啟動計時器：每秒更新一次頁面數據
+            // 這會確保計時器能持續跑動 (需求 2)
+            setInterval(updateDisplay, 1000); 
+            
+            // 立即執行一次，顯示初始狀態
+            updateDisplay(); 
+        }
+
+        initialize();
+    </script>
+</body>
+</html>

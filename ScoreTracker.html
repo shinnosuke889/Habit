@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分數追蹤器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            text-align: center;
+        }
+        .options-container {
+            margin-bottom: 20px;
+            text-align: left;
+            display: inline-block;
+        }
+        .option-group {
+            margin-bottom: 15px;
+        }
+        .option-group label {
+            font-size: 16px;
+            display: block;
+            margin-bottom: 5px;
+        }
+        .option-group input[type="radio"] {
+            margin-right: 5px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        .total-score {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        #score-log {
+            margin-top: 20px;
+            text-align: left;
+            border: 1px solid #ccc;
+            padding: 10px;
+            max-height: 400px;
+            overflow-y: scroll;
+        }
+        .score-entry {
+            margin-bottom: 5px;
+            border-bottom: 1px dashed #eee;
+            padding-bottom: 5px;
+            line-height: 1.5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .score-content {
+            flex-grow: 1;
+        }
+        .score-details {
+            font-size: 14px;
+            color: #555;
+            margin-top: 5px;
+        }
+        .delete-btn {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            flex-shrink: 0;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>分數追蹤器</h1>
+    <div class="options-container">
+        <div class="option-group">
+            <label>1. 寫功課需要的東西都要帶回來</label>
+            <input type="radio" name="q1" value="Y" required> 是
+            <input type="radio" name="q1" value="N"> 否
+        </div>
+        <div class="option-group">
+            <label>2. 沒有被老師寫聯絡簿</label>
+            <input type="radio" name="q2" value="Y" required> 是
+            <input type="radio" name="q2" value="N"> 否
+        </div>
+        <div class="option-group">
+            <label>3. 前一天的功課全對，不需要訂正</label>
+            <input type="radio" name="q3" value="Y" required> 是
+            <input type="radio" name="q3" value="N"> 否
+        </div>
+    </div>
+    
+    <div>
+        <button onclick="addScore()">新增分數</button>
+    </div>
+    
+    <div class="total-score">
+        累積總分: <span id="total-score-display">0</span>
+    </div>
+
+    <div id="score-log">
+        <h3>分數紀錄</h3>
+    </div>
+
+    <script>
+        const scoreLogElement = document.getElementById('score-log');
+        const totalScoreElement = document.getElementById('total-score-display');
+        
+        let scoresData = [];
+
+        // 載入 localStorage 中的紀錄
+        window.onload = function() {
+            const storedScores = localStorage.getItem('scoreTrackerData');
+            if (storedScores) {
+                scoresData = JSON.parse(storedScores);
+                renderScores();
+            }
+        };
+
+        // 檢查三個問題是否都已回答
+        function validateAnswers() {
+            const q1Answer = document.querySelector('input[name="q1"]:checked');
+            const q2Answer = document.querySelector('input[name="q2"]:checked');
+            const q3Answer = document.querySelector('input[name="q3"]:checked');
+            
+            if (!q1Answer || !q2Answer || !q3Answer) {
+                alert('請回答所有問題後再新增分數！');
+                return false;
+            }
+            return true;
+        }
+
+        // 根據回答計算分數
+        function calculateScore() {
+            const o1 = document.querySelector('input[name="q1"]:checked').value;
+            const o2 = document.querySelector('input[name="q2"]:checked').value;
+            const o3 = document.querySelector('input[name="q3"]:checked').value;
+
+            if (o1 === 'Y' && o2 === 'Y' && o3 === 'Y') return 3;
+            if (o1 === 'Y' && o2 === 'N' && o3 === 'N') return -1;
+            if (o1 === 'Y' && o2 === 'Y' && o3 === 'N') return 1;
+            if (o1 === 'Y' && o2 === 'N' && o3 === 'Y') return 1;
+            if (o1 === 'N' && o2 === 'Y' && o3 === 'Y') return 1;
+            if (o1 === 'N' && o2 === 'N' && o3 === 'Y') return 1;
+            if (o1 === 'N' && o2 === 'N' && o3 === 'N') return -1;
+            if (o1 === 'N' && o2 === 'Y' && o3 === 'N') return -1;
+            
+            return 0;
+        }
+
+        // 新增分數
+        function addScore() {
+            if (!validateAnswers()) {
+                return;
+            }
+            
+            const newScore = calculateScore();
+            const timestamp = new Date().toLocaleString();
+            const newEntry = {
+                score: newScore,
+                timestamp: timestamp,
+                option1: document.querySelector('input[name="q1"]:checked').value,
+                option2: document.querySelector('input[name="q2"]:checked').value,
+                option3: document.querySelector('input[name="q3"]:checked').value
+            };
+            
+            scoresData.push(newEntry);
+            saveScores();
+            renderScores();
+            
+            // 重置選項，以便下一次填答
+            document.querySelectorAll('input[type="radio"]').forEach(radio => radio.checked = false);
+        }
+
+        // 刪除指定的紀錄
+        function deleteScore(index) {
+            scoresData.splice(index, 1);
+            saveScores();
+            renderScores();
+        }
+
+        // 儲存分數到 localStorage
+        function saveScores() {
+            localStorage.setItem('scoreTrackerData', JSON.stringify(scoresData));
+        }
+
+        // 顯示所有分數紀錄
+        function renderScores() {
+            scoreLogElement.innerHTML = '<h3>分數紀錄</h3>';
+            let totalScore = 0;
+            
+            scoresData.forEach((entry, index) => {
+                const entryDiv = document.createElement('div');
+                entryDiv.className = 'score-entry';
+
+                // 建立內容容器
+                const contentContainer = document.createElement('div');
+                contentContainer.className = 'score-content';
+                
+                // 顯示日期與分數
+                const scoreDisplay = document.createElement('div');
+                scoreDisplay.textContent = `${entry.timestamp}: ${entry.score} 分`;
+                contentContainer.appendChild(scoreDisplay);
+                
+                // 顯示問題與答案
+                const detailsDisplay = document.createElement('div');
+                detailsDisplay.className = 'score-details';
+                
+                const q1Result = `寫功課需要的東西都要帶回來: ${entry.option1 === 'Y' ? '是' : '否'}`;
+                const q2Result = `沒有被老師寫聯絡簿: ${entry.option2 === 'Y' ? '是' : '否'}`;
+                const q3Result = `前一天的功課全對，不需要訂正: ${entry.option3 === 'Y' ? '是' : '否'}`;
+                
+                detailsDisplay.innerHTML = `${q1Result}<br>${q2Result}<br>${q3Result}`;
+                
+                contentContainer.appendChild(detailsDisplay);
+                
+                // 建立刪除按鈕
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'delete-btn';
+                deleteButton.textContent = '刪除';
+                deleteButton.onclick = () => deleteScore(index);
+                
+                entryDiv.appendChild(contentContainer);
+                entryDiv.appendChild(deleteButton);
+                
+                scoreLogElement.appendChild(entryDiv);
+                totalScore += entry.score;
+            });
+            
+            totalScoreElement.textContent = totalScore;
+        }
+    </script>
+</body>
+</html>

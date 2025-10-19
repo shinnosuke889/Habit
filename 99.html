@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>99乘法表練習</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #f4f7f6; /* 輕微的灰色背景 */
+            color: #333;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 30px 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 500px;
+            text-align: center;
+        }
+
+        #question {
+            font-size: 3em;
+            margin-bottom: 20px;
+            color: #007bff; /* 藍色問題文字 */
+            min-height: 1.5em; /* 確保在載入時有空間 */
+        }
+
+        #answer-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* 兩欄按鈕 */
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .answer-btn {
+            background-color: #28a745; /* 綠色按鈕底色 */
+            color: white;
+            border: none;
+            padding: 15px 0;
+            font-size: 1.5em;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .answer-btn:hover {
+            background-color: #218838;
+            transform: translateY(-2px);
+        }
+
+        .answer-btn:active {
+            transform: translateY(0);
+        }
+        
+        #result-message {
+            font-size: 1.8em;
+            font-weight: bold;
+            min-height: 1.5em; /* 確保結果訊息有顯示空間 */
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔢 乘法小測驗</h1>
+        
+        <div id="question"></div>
+
+        <div id="answer-buttons">
+            </div>
+
+        <div id="result-message">請選擇一個答案</div>
+    </div>
+
+    <script>
+        let correctAnswer = 0;
+
+        /**
+         * 隨機生成一個 1 到 9 之間的整數（個位數）
+         */
+        function getRandomDigit() {
+            // Math.random() 產生 0 到 0.999...
+            // 乘以 9 變成 0 到 8.999...
+            // Math.floor 取整數變成 0 到 8
+            // + 1 變成 1 到 9
+            return Math.floor(Math.random() * 9) + 1;
+        }
+
+        /**
+         * 產生一個新的乘法題目
+         */
+        function generateNewQuestion() {
+            // 1. 隨機生成兩個個位數 (1-9)
+            const num1 = getRandomDigit();
+            const num2 = getRandomDigit();
+
+            // 計算正確答案
+            correctAnswer = num1 * num2;
+
+            // 顯示題目
+            document.getElementById('question').innerHTML = `${num1} &times; ${num2} = ?`;
+
+            // 2. 產生四個可能的答案按鈕
+            generateAnswerOptions();
+
+            // 清除結果訊息
+            document.getElementById('result-message').innerHTML = '請選擇一個答案';
+            document.getElementById('result-message').style.color = '#333';
+        }
+
+        /**
+         * 產生答案按鈕並放入正確答案
+         */
+        function generateAnswerOptions() {
+            const optionsContainer = document.getElementById('answer-buttons');
+            optionsContainer.innerHTML = ''; // 清空舊按鈕
+            
+            const options = new Set();
+            options.add(correctAnswer); // 確保正確答案一定在選項中
+
+            // 產生三個錯誤答案
+            while (options.size < 4) {
+                let wrongAnswer;
+                // 產生一個接近正確答案的錯誤答案
+                // 範圍設定為正確答案正負 5 或 10，但不能是負數或正確答案本身
+                const minVal = Math.max(1, correctAnswer - 5);
+                const maxVal = correctAnswer + 5;
+                
+                // 產生一個在範圍內且不是正確答案的隨機數
+                do {
+                    wrongAnswer = Math.floor(Math.random() * (maxVal - minVal + 1)) + minVal;
+                } while (options.has(wrongAnswer) || wrongAnswer === correctAnswer);
+
+                options.add(wrongAnswer);
+            }
+
+            // 將 Set 轉換為陣列，並隨機打亂順序
+            const shuffledOptions = Array.from(options).sort(() => Math.random() - 0.5);
+
+            // 創建並顯示按鈕
+            shuffledOptions.forEach(option => {
+                const button = document.createElement('button');
+                button.className = 'answer-btn';
+                button.innerHTML = option;
+                button.value = option;
+                // 為每個按鈕添加點擊事件處理
+                button.onclick = checkAnswer; 
+                optionsContainer.appendChild(button);
+            });
+        }
+
+        /**
+         * 檢查使用者選擇的答案是否正確
+         */
+        function checkAnswer(event) {
+            const selectedAnswer = parseInt(event.target.value);
+            const resultMessage = document.getElementById('result-message');
+            
+            if (selectedAnswer === correctAnswer) {
+                // 2. 選擇正確答案
+                resultMessage.innerHTML = '✅ 回答**正確**！太棒了！';
+                resultMessage.style.color = '#28a745'; // 綠色
+            } else {
+                // 3. 選擇錯誤答案
+                resultMessage.innerHTML = `❌ 回答**錯誤**！正確答案是 ${correctAnswer}。`;
+                resultMessage.style.color = '#dc3545'; // 紅色
+            }
+
+            // 4. 不論正確或錯誤，顯示下一題
+            // 延遲 1.5 秒後生成下一題，讓使用者有時間看到結果
+            setTimeout(generateNewQuestion, 1500); 
+            
+            // 暫時禁用所有按鈕，防止連續點擊
+            document.querySelectorAll('.answer-btn').forEach(btn => btn.onclick = null);
+        }
+
+        // 網頁載入後，立即生成第一道題目
+        window.onload = generateNewQuestion;
+    </script>
+</body>
+</html>

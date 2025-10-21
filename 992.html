@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>99乘法競速遊戲 (通用垂直版)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            background-color: #f4f7f6;
+            color: #333;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 550px;
+            text-align: center;
+            /* 關鍵：強制容器內所有內容垂直堆疊 */
+            display: flex; 
+            flex-direction: column; 
+            justify-content: flex-start;
+            flex-grow: 1;
+        }
+
+        /* 遊戲畫面容器 - 確保其子元件是垂直排列的 */
+        #game-screen {
+            display: flex;
+            flex-direction: column; /* 確保題目、按鈕等元件垂直堆疊 */
+        }
+        
+        /* 狀態列：強制分數和計時器各自佔一行 */
+        .status-bar {
+            display: flex;
+            flex-direction: column; /* 將分數和計時器垂直堆疊 */
+            align-items: center;
+            margin-bottom: 20px;
+            font-weight: bold;
+            font-size: 1.2em;
+            color: #007bff;
+        }
+        
+        /* 確保分數和計時器各自佔滿寬度 */
+        .score-info, .timer-info {
+            width: 100%;
+            padding: 5px 0;
+            text-align: center; 
+        }
+
+        #timer-display {
+            color: #dc3545;
+            font-size: 1.8em;
+            display: block;
+            margin-top: 5px;
+        }
+
+        /* 題目顯示區 */
+        #question {
+            font-size: 4em;
+            margin: 30px 0;
+            color: #343a40;
+            min-height: 1.5em;
+        }
+
+        /* 答案按鈕區 */
+        #answer-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .answer-btn {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 15px 0;
+            font-size: 1.5em;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+
+        .answer-btn:hover:not(:disabled) { background-color: #218838; transform: translateY(-2px); }
+        .answer-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        
+        /* 結果訊息 */
+        #result-message {
+            font-size: 1.6em;
+            font-weight: bold;
+            min-height: 1.5em;
+            margin-top: 15px;
+        }
+
+        /* 開始/結束畫面 */
+        .game-screen { display: none; }
+        .start-screen, .end-screen { 
+            text-align: center;
+            padding: 50px 0;
+        }
+        .start-screen h1 { font-size: 2.5em; color: #007bff; margin-bottom: 20px; }
+        .start-button, .restart-button {
+            padding: 15px 30px; font-size: 1.8em; background-color: #007bff;
+            color: white; border: none; border-radius: 10px; cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .start-button:hover, .restart-button:hover { background-color: #0056b3; }
+
+        /* 結束畫面列表 */
+        .wrong-answers-list { text-align: left; margin-top: 30px; padding-top: 15px; border-top: 2px solid #eee; }
+        .wrong-answers-list h3 { color: #dc3545; margin-bottom: 10px; }
+        .wrong-answers-list ul { list-style: none; padding: 0; }
+        .wrong-answers-list li { font-size: 1.1em; margin-bottom: 8px; padding: 5px; border-bottom: 1px dashed #ccc; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        
+        <div id="start-screen" class="start-screen">
+            <h1>歡迎來到乘法競速挑戰！</h1>
+            <p style="font-size:1.2em; color:#6c757d;">目標：累積 10 分，時間越短越好。<br>每題必須在 10 秒內回答。</p>
+            <button class="start-button" onclick="startGame()">開始挑戰</button>
+        </div>
+
+        <div id="game-screen" class="game-screen">
+            <div class="status-bar">
+                <div class="score-info">累積分數: <span id="score-display">0</span> / 10</div>
+                <div class="timer-info">倒數計時: <span id="timer-display">10</span>s</div>
+            </div>
+
+            <div id="question"></div>
+
+            <div id="answer-buttons">
+                </div>
+
+            <div id="result-message"></div>
+        </div>
+
+        <div id="end-screen" class="end-screen">
+            <h1 style="color:#28a745;">🎉 挑戰成功！</h1>
+            <p style="font-size:1.5em;">恭喜您達到 10 分！</p>
+            <p style="font-size:1.8em; font-weight:bold;">總耗時: <span id="time-elapsed-display" style="color:#007bff;"></span></p>
+
+            <div id="wrong-answers-section" class="wrong-answers-list">
+                <h3>錯題回顧與學習</h3>
+                <ul id="wrong-answers-list">
+                    </ul>
+            </div>
+            
+            <button class="restart-button" onclick="startGame()">再玩一次</button>
+        </div>
+
+    </div>
+
+    <script>
+        // 遊戲狀態變數
+        let score = 0;
+        let correctAnswer = 0;
+        let gameStartTime;
+        let currentQTimer; 
+        let wrongAnswers = []; 
+        let lastQuestionKey = ''; // 新增：用於記錄上一題的唯一鍵 (例如: '3x4')
+        
+        // 遊戲設定
+        const MAX_SCORE = 10;
+        const QUESTION_TIME_LIMIT = 10;
+        const NEXT_QUESTION_DELAY = 750; 
+
+        // DOM 元素快取
+        const startScreen = document.getElementById('start-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const endScreen = document.getElementById('end-screen');
+        const scoreDisplay = document.getElementById('score-display');
+        const timerDisplay = document.getElementById('timer-display');
+        const questionElement = document.getElementById('question');
+        const answerButtonsContainer = document.getElementById('answer-buttons');
+        const resultMessage = document.getElementById('result-message');
+        const timeElapsedDisplay = document.getElementById('time-elapsed-display');
+        const wrongAnswersListElement = document.getElementById('wrong-answers-list');
+        
+        function switchScreen(screenName) {
+            startScreen.style.display = 'none';
+            gameScreen.style.display = 'none';
+            endScreen.style.display = 'none';
+
+            if (screenName === 'start') {
+                startScreen.style.display = 'block';
+            } else if (screenName === 'game') {
+                gameScreen.style.display = 'flex';
+            } else if (screenName === 'end') {
+                endScreen.style.display = 'block';
+            }
+        }
+        
+        function startGame() {
+            score = 0;
+            wrongAnswers = [];
+            lastQuestionKey = ''; // 重置上一題紀錄
+            scoreDisplay.textContent = score;
+            resultMessage.textContent = '';
+            
+            gameStartTime = Date.now();
+            
+            switchScreen('game');
+            generateNewQuestion();
+        }
+
+        function startQuestionTimer() {
+            let timeLeft = QUESTION_TIME_LIMIT;
+            timerDisplay.textContent = timeLeft;
+            timerDisplay.style.color = '#dc3545';
+
+            clearInterval(currentQTimer);
+
+            currentQTimer = setInterval(() => {
+                timeLeft--;
+                timerDisplay.textContent = timeLeft;
+                
+                if (timeLeft <= 3) {
+                    timerDisplay.style.color = 'orange';
+                }
+
+                if (timeLeft <= 0) {
+                    clearInterval(currentQTimer);
+                    handleTimeout();
+                }
+            }, 1000);
+        }
+
+        function handleTimeout() {
+            updateScore(-1);
+            
+            const questionText = questionElement.textContent.replace(' = ?', '');
+            recordMistake(questionText, correctAnswer);
+            
+            resultMessage.innerHTML = `❌ 時間到！自動判錯，正確答案是 ${correctAnswer}。`;
+            resultMessage.style.color = '#dc3545';
+
+            disableAnswerButtons(true);
+            setTimeout(generateNewQuestion, NEXT_QUESTION_DELAY);
+        }
+
+        function updateScore(delta) {
+            score += delta;
+            if (score < 0) score = 0; 
+            scoreDisplay.textContent = score;
+            
+            if (score >= MAX_SCORE) {
+                checkGameEnd();
+            }
+        }
+
+        /**
+         * 調整：產生一個 2 到 9 之間的隨機數
+         */
+        function getRandomDigit() {
+            // Math.random() * (max - min + 1) + min
+            return Math.floor(Math.random() * 8) + 2; 
+        }
+
+        /**
+         * 產生一個新的乘法題目並啟動計時器
+         */
+        function generateNewQuestion() {
+            clearInterval(currentQTimer);
+
+            if (score >= MAX_SCORE) {
+                 checkGameEnd();
+                 return;
+            }
+
+            let num1, num2, currentKey;
+
+            do {
+                // 產生兩個 2-9 的乘數
+                num1 = getRandomDigit();
+                num2 = getRandomDigit();
+                
+                // 產生一個唯一鍵：將較小的數放前面，確保 3x4 和 4x3 視為相同題目
+                const factors = [num1, num2].sort((a, b) => a - b);
+                currentKey = factors[0] + 'x' + factors[1];
+                
+            } while (currentKey === lastQuestionKey); // 檢查是否與上一題重複
+
+            // 更新上一題的紀錄
+            lastQuestionKey = currentKey;
+            
+            correctAnswer = num1 * num2;
+            
+            // 顯示題目
+            questionElement.innerHTML = `${num1} &times; ${num2} = ?`;
+
+            // 產生答案選項
+            generateAnswerOptions();
+            
+            // 清除結果訊息
+            resultMessage.textContent = '';
+            resultMessage.style.color = '#333';
+            
+            // 啟動 10 秒倒數計時器
+            startQuestionTimer();
+            disableAnswerButtons(false); // 啟用按鈕
+        }
+
+        function generateAnswerOptions() {
+            answerButtonsContainer.innerHTML = '';
+            const options = new Set();
+            options.add(correctAnswer); 
+
+            while (options.size < 4) {
+                let wrongAnswer;
+                const minVal = 4; // 乘數從 2x2 開始，最小答案是 4
+                const maxVal = correctAnswer + 10;
+                
+                do {
+                    wrongAnswer = Math.floor(Math.random() * (maxVal - minVal + 1)) + minVal;
+                } while (options.has(wrongAnswer) || wrongAnswer === correctAnswer);
+
+                options.add(wrongAnswer);
+            }
+
+            const shuffledOptions = Array.from(options).sort(() => Math.random() - 0.5);
+
+            shuffledOptions.forEach(option => {
+                const button = document.createElement('button');
+                button.className = 'answer-btn';
+                button.innerHTML = option;
+                button.value = option;
+                button.onclick = checkAnswer; 
+                answerButtonsContainer.appendChild(button);
+            });
+        }
+
+        function checkAnswer(event) {
+            clearInterval(currentQTimer);
+            disableAnswerButtons(true);
+            
+            const selectedAnswer = parseInt(event.target.value);
+            const questionText = questionElement.textContent.replace(' = ?', '');
+            
+            if (selectedAnswer === correctAnswer) {
+                updateScore(1);
+                resultMessage.innerHTML = '✅ 回答**正確**！';
+                resultMessage.style.color = '#28a745';
+            } else {
+                updateScore(-1);
+                recordMistake(questionText, correctAnswer);
+                resultMessage.innerHTML = `❌ 回答**錯誤**！正確答案是 ${correctAnswer}。`;
+                resultMessage.style.color = '#dc3545';
+            }
+
+            if (score < MAX_SCORE) {
+                setTimeout(generateNewQuestion, NEXT_QUESTION_DELAY);
+            } else {
+                checkGameEnd();
+            }
+        }
+
+        function recordMistake(question, correct) {
+            wrongAnswers.push({
+                question: question,
+                answer: correct
+            });
+        }
+        
+        function disableAnswerButtons(disable) {
+            document.querySelectorAll('.answer-btn').forEach(btn => {
+                btn.disabled = disable;
+            });
+        }
+
+        function checkGameEnd() {
+            if (score >= MAX_SCORE) {
+                clearInterval(currentQTimer);
+                
+                const totalTimeMs = Date.now() - gameStartTime;
+                const seconds = Math.floor(totalTimeMs / 1000);
+                const milliseconds = totalTimeMs % 1000;
+                
+                const timeString = `${seconds}.${String(milliseconds).padStart(3, '0')} 秒`;
+                
+                timeElapsedDisplay.textContent = timeString;
+                
+                displayWrongAnswers();
+
+                switchScreen('end');
+            }
+        }
+
+        function displayWrongAnswers() {
+            wrongAnswersListElement.innerHTML = '';
+            
+            if (wrongAnswers.length === 0) {
+                wrongAnswersListElement.innerHTML = '<li>太厲害了！本次遊戲中沒有答錯的題目！</li>';
+                document.getElementById('wrong-answers-section').style.borderTop = 'none';
+            } else {
+                document.getElementById('wrong-answers-section').style.borderTop = '2px solid #eee';
+                wrongAnswers.forEach(item => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `題目: <strong>${item.question}</strong>，正確答案: <strong>${item.answer}</strong>`;
+                    wrongAnswersListElement.appendChild(li);
+                });
+            }
+        }
+
+        window.onload = () => switchScreen('start');
+    </script>
+</body>
+</html>

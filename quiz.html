@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三年級標點符號特訓班 (隨機題庫版)</title>
+    <style>
+        body {
+            font-family: "Microsoft JhengHei", "Heiti TC", sans-serif;
+            background-color: #e0f7fa; /* 淺藍背景，保護眼睛 */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .quiz-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 700px;
+            text-align: center;
+            position: relative;
+        }
+        h1 { color: #006064; margin-bottom: 10px; }
+        .info-bar {
+            display: flex;
+            justify-content: space-between;
+            background: #b2ebf2;
+            padding: 10px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            color: #006064;
+        }
+        .question-box {
+            font-size: 24px;
+            margin: 20px 0;
+            line-height: 1.8;
+            text-align: left;
+            background: #fff3e0;
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 6px solid #ff9800;
+        }
+        .highlight {
+            color: #e65100;
+            font-weight: bold;
+            background-color: #ffe0b2;
+            padding: 0 5px;
+            border-radius: 4px;
+        }
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        button.option-btn {
+            padding: 15px;
+            font-size: 20px;
+            cursor: pointer;
+            border: 2px solid #b0bec5;
+            border-radius: 10px;
+            background-color: white;
+            color: #37474f;
+            transition: all 0.2s;
+        }
+        button.option-btn:hover:not(:disabled) {
+            background-color: #e1f5fe;
+            border-color: #29b6f6;
+            transform: translateY(-2px);
+        }
+        button.option-btn:disabled {
+            cursor: default;
+            opacity: 0.7;
+        }
+        /* 回饋區塊樣式 */
+        #feedback {
+            margin-top: 25px;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: left;
+            display: none; /* 預設隱藏 */
+            animation: fadeIn 0.5s;
+        }
+        .feedback-correct {
+            background-color: #e8f5e9;
+            border: 2px solid #4caf50;
+            color: #2e7d32;
+        }
+        .feedback-wrong {
+            background-color: #ffebee;
+            border: 2px solid #ef5350;
+            color: #c62828;
+        }
+        .explanation-title { font-weight: bold; font-size: 1.1em; margin-bottom: 5px; display: block; }
+        .concept-note { font-size: 0.9em; color: #555; margin-top: 5px; display: block; }
+
+        .next-btn {
+            margin-top: 20px;
+            padding: 12px 30px;
+            font-size: 18px;
+            background-color: #0097a7;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            display: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        .next-btn:hover { background-color: #00838f; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* 專名號與書名號的CSS模擬 */
+        .u-line { text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 2px; }
+        .w-line { text-decoration: underline; text-decoration-style: wavy; text-underline-offset: 5px; text-decoration-thickness: 1.5px; }
+
+    </style>
+</head>
+<body>
+
+<div class="quiz-container">
+    <h1>📝 標點符號特訓班</h1>
+    <div class="info-bar">
+        <span id="progress-text">第 1 / 10 題</span>
+        <span id="score-text">得分：0</span>
+    </div>
+    
+    <div id="game-area">
+        <div class="question-box" id="question-text">
+            題目載入中...
+        </div>
+        
+        <div class="options-grid" id="options-area">
+            </div>
+
+        <div id="feedback"></div>
+        <div style="text-align: right;">
+            <button class="next-btn" id="next-btn" onclick="nextQuestion()">下一題 ➜</button>
+        </div>
+    </div>
+
+    <div id="result-area" style="display: none;">
+        <h2 style="font-size: 32px; margin-bottom: 10px;">測驗結束！</h2>
+        <p style="font-size: 60px; margin: 20px 0; color: #ff9800; font-weight: bold;">
+            <span id="final-score">0</span><span style="font-size: 30px; color: #555;"> 分</span>
+        </p>
+        <p id="comment" style="font-size: 20px; color: #555; margin-bottom: 30px;"></p>
+        <button onclick="initGame()" class="next-btn" style="display: inline-block; background-color: #ff9800;">再挑戰一次 10 題</button>
+    </div>
+</div>
+
+<script>
+    // === 1. 標點符號知識庫 (用於錯誤回饋) ===
+    const usageGuide = {
+        "：": "【冒號】通常用在「說話」之前，或是要開始「列出一串東西」的時候。",
+        "——": "【破折號】是用來表示「聲音拉長」、「語氣突然轉彎」或是「補充說明」的時候。",
+        "；": "【分號】用在兩個結構很像、意思並重的長句子中間，比逗號分得更開一點。",
+        "《》": "【書名號】是用來標示「書名、電影名、歌曲名、遊戲名」等作品名稱的。",
+        "＿＿": "【專名號】(底線) 是標示「人名、地名、國名、朝代名」專用的符號。",
+        "……": "【刪節號】表示話沒說完，或是語氣斷斷續續。",
+        "，": "【逗號】是用來斷開句子，讓閱讀時可以稍微停頓一下。",
+        "、": "【頓號】是用在很多個短語並列的時候，像蘋果、香蕉、芭樂。",
+        "！": "【驚嘆號】表示驚訝、感嘆或命令的語氣。",
+        "？": "【問號】表示懷疑或發問。"
+    };
+
+    // === 2. 龐大的題庫 (約 80 題) ===
+    // 格式: q=題目, a=正確答案符號, opts=選項陣列(包含正確與錯誤), exp=正確答案的解釋
+    const fullQuestionPool = [
+        // --- 冒號 (Colon) ---
+        { q: "媽媽打開冰箱說<span class='highlight'>（　）</span>「糟糕，雞蛋都吃完了。」", a: "：", opts: ["：", "——", "；", "……"], exp: "後面接說話的內容，要用冒號。" },
+        { q: "運動會上，我們參加了許多項目<span class='highlight'>（　）</span>大隊接力、跳遠和拔河。", a: "：", opts: ["：", "。", "——", "？"], exp: "後面列舉了很多項目，要用冒號來總括下文。" },
+        { q: "老師提醒大家<span class='highlight'>（　）</span>「明天記得帶彩色筆喔！」", a: "：", opts: ["：", "；", "——", "、"], exp: "提示語在前面，後面接引號內的說話內容，用冒號。" },
+        { q: "這裡有三種水果<span class='highlight'>（　）</span>蘋果、香蕉、橘子。", a: "：", opts: ["：", "——", "；", "……"], exp: "要開始列清單了，用冒號。" },
+        { q: "爸爸嚴肅地看著我<span class='highlight'>（　）</span>「你今天的功課寫完了嗎？」", a: "：", opts: ["：", "，", "——", "；"], exp: "說話前的神情描寫後，接說話內容，用冒號。" },
+        
+        // --- 破折號 (Dash) ---
+        { q: "火車進站了，發出嗚<span class='highlight'>（　）</span>的聲音。", a: "——", opts: ["——", "……", "：", "。"], exp: "表示聲音的延長，要用破折號。" },
+        { q: "這道題目我原本以為很難，結果<span class='highlight'>（　）</span>竟然這麼簡單！", a: "——", opts: ["——", "：", "；", "，"], exp: "語意突然轉折（沒想到），用破折號。" },
+        { q: "那個穿紅衣服的人<span class='highlight'>（　）</span>他是我的表哥。", a: "——", opts: ["——", "：", "；", "？"], exp: "這裡是補充說明那個人是誰，用破折號。" },
+        { q: "遠方傳來一陣巨響，轟隆<span class='highlight'>（　）</span>，嚇了大家一跳。", a: "——", opts: ["——", "……", "：", "！"], exp: "模擬巨大的聲音拉長，用破折號。" },
+        { q: "我們全班都通過了考試，只有一個人例外<span class='highlight'>（　）</span>大明。", a: "——", opts: ["——", "；", "……", "，"], exp: "語意轉折加上補充說明例外的人，用破折號。" },
+        { q: "四季的變化<span class='highlight'>（　）</span>春、夏、秋、冬，各有不同的美。", a: "——", opts: ["——", "：", "；", "……"], exp: "這裡破折號用來提起下文，做補充說明。（註：若視為列舉清單，冒號亦可，但破折號更強調說明）" },
+
+        // --- 分號 (Semicolon) ---
+        { q: "花園裡，玫瑰花熱情如火<span class='highlight'>（　）</span>百合花純潔高雅。", a: "；", opts: ["；", "：", "！", "？"], exp: "兩個結構相似的並列句子，中間用分號。" },
+        { q: "早上，爸爸去上班<span class='highlight'>（　）</span>媽媽去市場買菜。", a: "；", opts: ["；", "：", "——", "……"], exp: "並列的兩個句子，用分號分開。" },
+        { q: "燕子去了，有再來的時候<span class='highlight'>（　）</span>楊柳枯了，有再青的時候。", a: "；", opts: ["；", "，", "：", "——"], exp: "這是很有名的排比句，中間用分號。" },
+        { q: "失敗是成功之母<span class='highlight'>（　）</span>驕傲是失敗之父。", a: "；", opts: ["；", "：", "——", "！"], exp: "兩個意思相反但結構相同的句子，用分號。" },
+        { q: "圖書館裡，有人在看書<span class='highlight'>（　）</span>有人在查資料。", a: "；", opts: ["；", "：", "……", "？"], exp: "並列描寫不同的動作，用分號。" },
+
+        // --- 書名號 (Title Mark) ---
+        { q: "我最喜歡讀<span class='highlight'>（　）</span>哈利波特<span class='highlight'>（　）</span>這本小說。", a: "《》", opts: ["《》", "＿＿", "——", "："], exp: "哈利波特是書名，要用書名號。" },
+        { q: "大家一起唱著<span class='highlight'>（　）</span>生日快樂歌<span class='highlight'>（　）</span>。", a: "《》", opts: ["《》", "＿＿", "「」", "："], exp: "歌曲的名稱也要用書名號。" },
+        { q: "你看過<span class='highlight'>（　）</span>龍貓<span class='highlight'>（　）</span>這部電影嗎？", a: "《》", opts: ["《》", "＿＿", "——", "；"], exp: "電影名稱屬於作品，用書名號。" },
+        { q: "今天老師教我們背誦<span class='highlight'>（　）</span>靜夜思<span class='highlight'>（　）</span>這首詩。", a: "《》", opts: ["《》", "＿＿", "：", "……"], exp: "詩的題目也是作品名，用書名號。" },
+        { q: "我和哥哥在玩<span class='highlight'>（　）</span>超級瑪利歐<span class='highlight'>（　）</span>。", a: "《》", opts: ["《》", "＿＿", "——", "，"], exp: "遊戲名稱通常也視為作品，可用書名號。" },
+        { q: "我們在報紙上看到<span class='highlight'>（　）</span>校園生活<span class='highlight'>（　）</span>這個專欄。", a: "《》", opts: ["《》", "＿＿", "：", "；"], exp: "報章雜誌的專欄名稱，用書名號。" },
+
+        // --- 專名號 (Proper Noun Mark) ---
+        { q: "我的好朋友住在<span class='highlight'>（　）</span>臺南市<span class='highlight'>（　）</span>。", a: "＿＿", opts: ["＿＿", "《》", "——", "："], exp: "臺南市是地名，要用專名號（底線）。" },
+        { q: "歷史課本提到了<span class='highlight'>（　）</span>孔子<span class='highlight'>（　）</span>這位偉大的老師。", a: "＿＿", opts: ["＿＿", "《》", "，", "；"], exp: "孔子是人名，要用專名號。" },
+        { q: "今年暑假我們要去<span class='highlight'>（　）</span>日本<span class='highlight'>（　）</span>玩。", a: "＿＿", opts: ["＿＿", "《》", "：", "——"], exp: "日本是國名，要用專名號。" },
+        { q: "<span class='highlight'>（　）</span>唐朝<span class='highlight'>（　）</span>是一個詩歌很發達的朝代。", a: "＿＿", opts: ["＿＿", "《》", "——", "……"], exp: "唐朝是朝代名，要用專名號。" },
+        { q: "我們學校旁邊有一條<span class='highlight'>（　）</span>淡水河<span class='highlight'>（　）</span>。", a: "＿＿", opts: ["＿＿", "《》", "，", "："], exp: "淡水河是河流名稱（地名），用專名號。" },
+        { q: "<span class='highlight'>（　）</span>阿里山<span class='highlight'>（　）</span>的日出非常有名。", a: "＿＿", opts: ["＿＿", "《》", "——", "！"], exp: "山的名字是地名，用專名號。" },
+
+        // --- 刪節號 (Ellipsis) ---
+        { q: "天上的星星好多啊，有大熊座、獵戶座<span class='highlight'>（　）</span>數都數不完。", a: "……", opts: ["……", "——", "：", "；"], exp: "表示後面還有很多沒列出來，用刪節號。" },
+        { q: "他說話吞吞吐吐：「我……我<span class='highlight'>（　）</span>不是故意的。」", a: "……", opts: ["……", "——", "，", "："], exp: "表示說話斷斷續續，用刪節號。" },
+        { q: "市場裡有賣魚、賣肉、賣菜<span class='highlight'>（　）</span>真是熱鬧。", a: "……", opts: ["……", "：", "；", "——"], exp: "列舉未完，表示「等等」，用刪節號。" },
+
+        // --- 混合與其他 (Mix) ---
+        { q: "這本書是誰的<span class='highlight'>（　）</span>", a: "？", opts: ["？", "！", "。", "，"], exp: "這是在問問題，要用問號。" },
+        { q: "哇<span class='highlight'>（　）</span>這裡的風景真美！", a: "！", opts: ["！", "？", "：", "……"], exp: "表示驚嘆的語氣，用驚嘆號。（註：哇後面接驚嘆號或逗號皆可，但選項若有驚嘆號則強調語氣）" },
+        { q: "桌上有筆<span class='highlight'>（　）</span>橡皮擦和尺。", a: "、", opts: ["、", "；", "：", "……"], exp: "短語之間的停頓，用頓號。" },
+        { q: "這朵花真香<span class='highlight'>（　）</span>顏色真美。", a: "，", opts: ["，", "：", "——", "？"], exp: "句子中間的一般停頓，用逗號。" },
+        { q: "這部電影的主角是<span class='highlight'>（　）</span>蜘蛛人<span class='highlight'>（　）</span>。", a: "＿＿", opts: ["＿＿", "《》", "：", "——"], exp: "劇中人物名字視為專名（人名），用專名號。" },
+        { q: "我讀了一本書叫<span class='highlight'>（　）</span>小王子<span class='highlight'>（　）</span>。", a: "《》", opts: ["《》", "＿＿", "：", "，"], exp: "書名，用書名號。" },
+        { q: "這家餐廳的招牌菜是<span class='highlight'>（　）</span>牛肉麵。", a: "：", opts: ["：", "——", "；", "、"], exp: "介紹特定事物，用冒號引出。" },
+        { q: "我們要愛護地球<span class='highlight'>（　）</span>因為這是我們的家。", a: "，", opts: ["，", "：", "；", "——"], exp: "一般句子連接，用逗號。" },
+        { q: "他大聲喊道<span class='highlight'>（　）</span>「快跑！」", a: "：", opts: ["：", "；", "——", "……"], exp: "說話前，用冒號。" },
+        { q: "風吹過樹林，沙沙<span class='highlight'>（　）</span>作響。", a: "——", opts: ["——", "……", "：", "。"], exp: "聲音的延長，用破折號。" },
+        
+        // 為了達到隨機多樣性，這裡擴充更多變體...
+        { q: "弟弟最愛看的卡通是<span class='highlight'>（　）</span>哆啦A夢<span class='highlight'>（　）</span>。", a: "《》", opts: ["《》", "＿＿", "——", "："], exp: "卡通節目名稱，用書名號。" },
+        { q: "台灣最高的山是<span class='highlight'>（　）</span>玉山<span class='highlight'>（　）</span>。", a: "＿＿", opts: ["＿＿", "《》", "：", "；"], exp: "玉山是地名，用專名號。" },
+        { q: "這件事真是太奇怪了<span class='highlight'>（　）</span>", a: "！", opts: ["！", "？", "：", "……"], exp: "強烈的感嘆語氣，用驚嘆號。" },
+        { q: "請問現在幾點了<span class='highlight'>（　）</span>", a: "？", opts: ["？", "！", "。", "，"], exp: "詢問時間，用問號。" },
+        { q: "我想去動物園看獅子<span class='highlight'>（　）</span>老虎和大象。", a: "、", opts: ["、", "；", "：", "……"], exp: "名詞並列，中間用頓號。" },
+        { q: "只要努力練習<span class='highlight'>（　）</span>就能得到好成績。", a: "，", opts: ["，", "：", "——", "；"], exp: "條件句的中間停頓，用逗號。" },
+        { q: "雖然下雨了<span class='highlight'>（　）</span>我們還是去踢球。", a: "，", opts: ["，", "：", "；", "——"], exp: "轉折句的中間停頓，用逗號。" },
+        { q: "孔明借東風<span class='highlight'>（　）</span>關公過五關。", a: "；", opts: ["；", "：", "！", "？"], exp: "對仗工整的句子，中間用分號。" },
+        { q: "遠方有一座高塔<span class='highlight'>（　）</span>台北101。", a: "——", opts: ["——", "；", "……", "，"], exp: "補充說明那座高塔是什麼，用破折號。" },
+        { q: "演講開始了，校長說<span class='highlight'>（　）</span>「各位同學好。」", a: "：", opts: ["：", "——", "；", "……"], exp: "說話前用冒號。" }
+    ];
+
+    // === 3. 遊戲邏輯變數 ===
+    let currentQuestions = [];
+    let currentIndex = 0;
+    let score = 0;
+    const totalQuestions = 10; // 每次測驗 10 題
+
+    // 洗牌演算法 (Fisher-Yates)
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    // 初始化遊戲
+    function initGame() {
+        document.getElementById("result-area").style.display = "none";
+        document.getElementById("game-area").style.display = "block";
+        score = 0;
+        currentIndex = 0;
+        updateScoreBoard();
+        
+        // 1. 複製題庫並洗牌
+        let shuffledPool = shuffleArray([...fullQuestionPool]);
+        // 2. 取出前 10 題
+        currentQuestions = shuffledPool.slice(0, totalQuestions);
+        
+        loadQuestion();
+    }
+
+    // 載入題目
+    function loadQuestion() {
+        // 重置介面
+        document.getElementById("feedback").style.display = "none";
+        document.getElementById("next-btn").style.display = "none";
+        document.getElementById("progress-text").innerText = `第 ${currentIndex + 1} / ${totalQuestions} 題`;
+        
+        let q = currentQuestions[currentIndex];
+        document.getElementById("question-text").innerHTML = q.q;
+        
+        const optionsArea = document.getElementById("options-area");
+        optionsArea.innerHTML = "";
+        
+        // 選項洗牌
+        let shuffledOptions = shuffleArray([...q.opts]);
+        
+        shuffledOptions.forEach(opt => {
+            let btn = document.createElement("button");
+            btn.className = "option-btn";
+            btn.innerHTML = formatSymbol(opt); // 處理書名號和專名號的顯示
+            btn.onclick = () => checkAnswer(opt, btn);
+            optionsArea.appendChild(btn);
+        });
+    }
+
+    // 格式化顯示符號 (讓按鈕上的專名號/書名號比較好看)
+    function formatSymbol(symbol) {
+        if (symbol === "《》") return "《　》<br><small>書名號</small>";
+        if (symbol === "＿＿") return "<u>　　</u><br><small>專名號</small>";
+        // 加入中文說明輔助
+        let name = "";
+        if(symbol === "：") name = "冒號";
+        if(symbol === "——") name = "破折號";
+        if(symbol === "；") name = "分號";
+        if(symbol === "……") name = "刪節號";
+        if(symbol === "，") name = "逗號";
+        if(symbol === "、") name = "頓號";
+        if(symbol === "！") name = "驚嘆號";
+        if(symbol === "？") name = "問號";
+        if(symbol === "。") name = "句號";
+        
+        if (name) return `${symbol}<br><small>${name}</small>`;
+        return symbol;
+    }
+
+    // 檢查答案
+    function checkAnswer(userChoice, btnElement) {
+        // 鎖定所有按鈕
+        let allBtns = document.querySelectorAll(".option-btn");
+        allBtns.forEach(b => b.disabled = true);
+        
+        let q = currentQuestions[currentIndex];
+        let feedbackDiv = document.getElementById("feedback");
+        feedbackDiv.style.display = "block";
+        
+        if (userChoice === q.a) {
+            // 答對
+            score += 10;
+            btnElement.style.backgroundColor = "#c8e6c9"; // 綠色背景
+            btnElement.style.borderColor = "#4caf50";
+            feedbackDiv.className = "feedback-correct";
+            feedbackDiv.innerHTML = `
+                <span class="explanation-title">✅ 答對了！</span>
+                ${q.exp}
+            `;
+        } else {
+            // 答錯
+            btnElement.style.backgroundColor = "#ffcdd2"; // 紅色背景
+            btnElement.style.borderColor = "#ef5350";
+            feedbackDiv.className = "feedback-wrong";
+            
+            // 找出正確答案的按鈕並標示綠色
+            allBtns.forEach(b => {
+                if (b.innerText.includes(q.a) || (q.a === "《》" && b.innerText.includes("書名號")) || (q.a === "＿＿" && b.innerText.includes("專名號"))) {
+                     b.style.backgroundColor = "#c8e6c9";
+                     b.style.borderColor = "#4caf50";
+                }
+            });
+
+            // 取得錯誤選項的解釋
+            let wrongExplanation = usageGuide[userChoice] || "這個符號不適合用在這裡喔。";
+            
+            feedbackDiv.innerHTML = `
+                <span class="explanation-title">❌ 答錯囉！</span>
+                <span class="concept-note">👉 <b>你選的「${userChoice}」</b>：${wrongExplanation}</span>
+                <hr style="border:0; border-top:1px dashed #ef9a9a; margin: 10px 0;">
+                <span class="explanation-title">正確答案是：${q.a}</span>
+                ${q.exp}
+            `;
+        }
+        
+        updateScoreBoard();
+        document.getElementById("next-btn").style.display = "inline-block";
+    }
+
+    function updateScoreBoard() {
+        document.getElementById("score-text").innerText = `得分：${score}`;
+    }
+
+    function nextQuestion() {
+        currentIndex++;
+        if (currentIndex < totalQuestions) {
+            loadQuestion();
+        } else {
+            showResult();
+        }
+    }
+
+    function showResult() {
+        document.getElementById("game-area").style.display = "none";
+        document.getElementById("result-area").style.display = "block";
+        document.getElementById("final-score").innerText = score;
+        
+        let comment = "";
+        if (score === 100) comment = "🏆 太神了！你是標點符號大師！";
+        else if (score >= 80) comment = "👏 很棒喔！觀念很清楚！";
+        else if (score >= 60) comment = "💪 不錯喔，再多練習幾次會更強！";
+        else comment = "📚 加油！從錯誤中學習是進步最快的方法！";
+        
+        document.getElementById("comment").innerText = comment;
+    }
+
+    // 啟動程式
+    initGame();
+
+</script>
+
+</body>
+</html>

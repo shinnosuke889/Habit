@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>迷宮闖關小遊戲</title>
+    <style>
+        body {
+            background-color: #1a1a1a;
+            color: #ffffff;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        h1 { margin-bottom: 10px; }
+        #info {
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        canvas {
+            border: 4px solid #444;
+            background-color: #111;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        .controls {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>迷宮大冒險</h1>
+    <div id="info">分數: <span id="score">0</span> | 使用方向鍵移動</div>
+    <canvas id="mazeCanvas" width="400" height="400"></canvas>
+    <div class="controls">提示：走到綠色格子通關，收集黃色寶箱加分！</div>
+
+    <script>
+        const canvas = document.getElementById('mazeCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreEl = document.getElementById('score');
+
+        const tileSize = 40;
+        const cols = 10;
+        const rows = 10;
+
+        // 0: 通道, 1: 牆壁, 2: 寶箱, 3: 終點
+        let map = [
+            [0, 1, 0, 0, 0, 1, 0, 0, 0, 3],
+            [0, 1, 0, 1, 0, 1, 0, 1, 1, 0],
+            [0, 0, 0, 1, 0, 0, 0, 0, 1, 0],
+            [1, 1, 0, 1, 1, 1, 1, 0, 1, 0],
+            [0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+            [0, 1, 1, 1, 1, 0, 1, 1, 1, 0],
+            [0, 0, 0, 0, 1, 0, 0, 0, 2, 0],
+            [1, 1, 1, 0, 1, 1, 1, 1, 1, 0],
+            [2, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 1, 1, 1, 1, 1, 0]
+        ];
+
+        let player = { x: 0, y: 0, score: 0 };
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    if (map[r][c] === 1) {
+                        ctx.fillStyle = '#333'; // 牆壁
+                        ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+                    } else if (map[r][c] === 2) {
+                        ctx.fillStyle = '#f1c40f'; // 寶箱
+                        ctx.fillRect(c * tileSize + 10, r * tileSize + 10, 20, 20);
+                    } else if (map[r][c] === 3) {
+                        ctx.fillStyle = '#2ecc71'; // 終點
+                        ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+                    }
+                }
+            }
+
+            // 畫玩家
+            ctx.fillStyle = '#3498db';
+            ctx.beginPath();
+            ctx.arc(
+                player.x * tileSize + tileSize / 2,
+                player.y * tileSize + tileSize / 2,
+                tileSize / 3,
+                0,
+                Math.PI * 2
+            );
+            ctx.fill();
+        }
+
+        function movePlayer(dx, dy) {
+            let newX = player.x + dx;
+            let newY = player.y + dy;
+
+            // 檢查邊界與牆壁
+            if (newX >= 0 && newX < cols && newY >= 0 && newY < rows) {
+                if (map[newY][newX] !== 1) {
+                    player.x = newX;
+                    player.y = newY;
+
+                    // 檢查是否吃到寶箱
+                    if (map[newY][newX] === 2) {
+                        player.score += 10;
+                        map[newY][newX] = 0; // 寶箱消失
+                        scoreEl.textContent = player.score;
+                    }
+
+                    // 檢查是否到達終點
+                    if (map[newY][newX] === 3) {
+                        alert('恭喜你通關！總得分：' + player.score);
+                        resetGame();
+                    }
+                }
+            }
+            draw();
+        }
+
+        function resetGame() {
+            player.x = 0;
+            player.y = 0;
+            player.score = 0;
+            scoreEl.textContent = player.score;
+            // 重新放回寶箱
+            map[6][8] = 2;
+            map[8][0] = 2;
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp') movePlayer(0, -1);
+            if (e.key === 'ArrowDown') movePlayer(0, 1);
+            if (e.key === 'ArrowLeft') movePlayer(-1, 0);
+            if (e.key === 'ArrowRight') movePlayer(1, 0);
+        });
+
+        draw();
+    </script>
+</body>
+</html>

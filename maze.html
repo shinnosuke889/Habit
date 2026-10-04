@@ -2,8 +2,13 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>迷宮闖關小遊戲</title>
     <style>
+        * {
+            box-sizing: border-box;
+        }
+
         body {
             background-color: #1a1a1a;
             color: #ffffff;
@@ -12,32 +17,109 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
+            min-height: 100vh;
             margin: 0;
+            padding: 16px;
+            overscroll-behavior: none;
         }
-        h1 { margin-bottom: 10px; }
+
+        h1 {
+            margin: 0 0 10px;
+        }
+
         #info {
             margin-bottom: 15px;
             font-size: 18px;
+            text-align: center;
         }
+
         canvas {
+            width: min(400px, 92vw);
+            height: auto;
             border: 4px solid #444;
             background-color: #111;
             box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            display: block;
         }
-        .controls {
-            margin-top: 15px;
+
+        .hint {
+            margin-top: 12px;
             font-size: 14px;
             color: #aaa;
+            text-align: center;
+        }
+
+        .mobile-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 64px);
+            grid-template-rows: repeat(2, 64px);
+            gap: 8px;
+            margin-top: 16px;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        .move-btn {
+            border: 2px solid #555;
+            border-radius: 14px;
+            background: #2c2c2c;
+            color: #fff;
+            font-size: 30px;
+            font-weight: bold;
+            box-shadow: 0 4px 0 #111;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+
+        .move-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 0 #111;
+            background: #3b3b3b;
+        }
+
+        .up { grid-column: 2; grid-row: 1; }
+        .left { grid-column: 1; grid-row: 2; }
+        .down { grid-column: 2; grid-row: 2; }
+        .right { grid-column: 3; grid-row: 2; }
+
+        @media (min-width: 768px) and (pointer: fine) {
+            .mobile-controls {
+                opacity: 0.75;
+            }
+        }
+
+        @media (max-height: 720px) {
+            body {
+                justify-content: flex-start;
+            }
+
+            h1 {
+                font-size: 26px;
+            }
+
+            .mobile-controls {
+                grid-template-columns: repeat(3, 54px);
+                grid-template-rows: repeat(2, 54px);
+            }
         }
     </style>
 </head>
 <body>
 
     <h1>迷宮大冒險</h1>
-    <div id="info">分數: <span id="score">0</span> | 使用方向鍵移動</div>
+    <div id="info">分數: <span id="score">0</span> | 鍵盤或下方方向鍵移動</div>
+
     <canvas id="mazeCanvas" width="400" height="400"></canvas>
-    <div class="controls">提示：走到綠色格子通關，收集黃色寶箱加分！</div>
+
+    <div class="hint">提示：走到綠色格子通關，收集黃色寶箱加分！</div>
+
+    <div class="mobile-controls" aria-label="移動控制">
+        <button class="move-btn up" data-dx="0" data-dy="-1" aria-label="向上">▲</button>
+        <button class="move-btn left" data-dx="-1" data-dy="0" aria-label="向左">◀</button>
+        <button class="move-btn down" data-dx="0" data-dy="1" aria-label="向下">▼</button>
+        <button class="move-btn right" data-dx="1" data-dy="0" aria-label="向右">▶</button>
+    </div>
 
     <script>
         const canvas = document.getElementById('mazeCanvas');
@@ -70,19 +152,18 @@
             for (let r = 0; r < rows; r++) {
                 for (let c = 0; c < cols; c++) {
                     if (map[r][c] === 1) {
-                        ctx.fillStyle = '#333'; // 牆壁
+                        ctx.fillStyle = '#333';
                         ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
                     } else if (map[r][c] === 2) {
-                        ctx.fillStyle = '#f1c40f'; // 寶箱
+                        ctx.fillStyle = '#f1c40f';
                         ctx.fillRect(c * tileSize + 10, r * tileSize + 10, 20, 20);
                     } else if (map[r][c] === 3) {
-                        ctx.fillStyle = '#2ecc71'; // 終點
+                        ctx.fillStyle = '#2ecc71';
                         ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
                     }
                 }
             }
 
-            // 畫玩家
             ctx.fillStyle = '#3498db';
             ctx.beginPath();
             ctx.arc(
@@ -96,29 +177,32 @@
         }
 
         function movePlayer(dx, dy) {
-            let newX = player.x + dx;
-            let newY = player.y + dy;
+            const newX = player.x + dx;
+            const newY = player.y + dy;
 
-            // 檢查邊界與牆壁
-            if (newX >= 0 && newX < cols && newY >= 0 && newY < rows) {
-                if (map[newY][newX] !== 1) {
-                    player.x = newX;
-                    player.y = newY;
+            if (
+                newX >= 0 && newX < cols &&
+                newY >= 0 && newY < rows &&
+                map[newY][newX] !== 1
+            ) {
+                player.x = newX;
+                player.y = newY;
 
-                    // 檢查是否吃到寶箱
-                    if (map[newY][newX] === 2) {
-                        player.score += 10;
-                        map[newY][newX] = 0; // 寶箱消失
-                        scoreEl.textContent = player.score;
-                    }
+                if (map[newY][newX] === 2) {
+                    player.score += 10;
+                    map[newY][newX] = 0;
+                    scoreEl.textContent = player.score;
+                }
 
-                    // 檢查是否到達終點
-                    if (map[newY][newX] === 3) {
+                if (map[newY][newX] === 3) {
+                    setTimeout(() => {
                         alert('恭喜你通關！總得分：' + player.score);
                         resetGame();
-                    }
+                        draw();
+                    }, 50);
                 }
             }
+
             draw();
         }
 
@@ -127,16 +211,31 @@
             player.y = 0;
             player.score = 0;
             scoreEl.textContent = player.score;
-            // 重新放回寶箱
             map[6][8] = 2;
             map[8][0] = 2;
         }
 
         window.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowUp') movePlayer(0, -1);
-            if (e.key === 'ArrowDown') movePlayer(0, 1);
-            if (e.key === 'ArrowLeft') movePlayer(-1, 0);
-            if (e.key === 'ArrowRight') movePlayer(1, 0);
+            const keys = {
+                ArrowUp: [0, -1],
+                ArrowDown: [0, 1],
+                ArrowLeft: [-1, 0],
+                ArrowRight: [1, 0]
+            };
+
+            if (keys[e.key]) {
+                e.preventDefault();
+                movePlayer(...keys[e.key]);
+            }
+        }, { passive: false });
+
+        document.querySelectorAll('.move-btn').forEach((button) => {
+            button.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                const dx = Number(button.dataset.dx);
+                const dy = Number(button.dataset.dy);
+                movePlayer(dx, dy);
+            });
         });
 
         draw();
